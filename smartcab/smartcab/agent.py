@@ -39,13 +39,13 @@ class LearningAgent(Agent):
         # Update epsilon using a decay function of your choice
         # Update additional class parameters as needed
         # If 'testing' is True, set epsilon and alpha to 0
+        # self.epsilon = self.epsilon-.05
         self.time_step = self.time_step + 1
-        #self.epsilon = .97**self.time_step
-        self.epsilon = self.epsilon-.05
+        self.epsilon = .991**self.time_step
         if testing:
             self.epsilon = 0
             self.alpha = 0
-        return 
+        return None
 
     def build_state(self):
         """ The build_state function is called when the agent requests data from the 
@@ -60,31 +60,28 @@ class LearningAgent(Agent):
         ########### 
         ## TO DO ##
         ###########
+        
+        # NOTE : you are not allowed to engineer features outside of the inputs available.
+        # Because the aim of this project is to teach Reinforcement Learning, we have placed 
+        # constraints in order for you to learn how to adjust epsilon and alpha,
+        # and thus learn about the balance between exploration and exploitation.
+        # With the hand-engineered features, this learning process gets entirely negated.
+        
         # Set 'state' as a tuple of relevant data for the agent        
-        state = (inputs['light'], inputs['left'], inputs['oncoming'],waypoint)
+        state = (waypoint, inputs['left'], inputs['right'], inputs['oncoming'], inputs['light'])
 
         return state
 
 
     def get_maxQ(self, state):
-        """ The get_max_Q function is called when the agent is asked to find the
+        """ The get_maxQ function is called when the agent is asked to find the
             maximum Q-value of all actions based on the 'state' the smartcab is in. """
 
         ########### 
         ## TO DO ##
         ###########
         # Calculate the maximum Q-value of all actions for a given state
-        state_dict = self.Q[state]
-        state_actions = list(state_dict.keys())
-        state_qvals = list(state_dict.values())
-        
-        for i,k in enumerate(state_actions):
-            if i == 0:
-                maxQ = state_qvals[i]
-            else:
-                if state_qvals[i]>maxQ:
-                    maxQ = state_qvals[i]
-        return maxQ 
+        return max(self.Q[state].values())
 
 
     def createQ(self, state):
@@ -96,9 +93,10 @@ class LearningAgent(Agent):
         # When learning, check if the 'state' is not in the Q-table
         # If it is not, create a new dictionary for that state
         #   Then, for each action available, set the initial Q-value to 0.0
-        if state not in self.Q.keys():
-            self.Q[state] = {'left':0, 'right':0,'forward':0, None:0}
-        return self.Q
+        if self.learning:
+            if state not in self.Q.keys():
+                self.Q[state] = {'left':0, 'right':0,'forward':0, None:0}
+        return
 
 
     def choose_action(self, state):
@@ -120,21 +118,22 @@ class LearningAgent(Agent):
             else:
                 state_actions = list(state_dict.keys())
                 state_qvals = list(state_dict.values())
-                action = state_actions[state_qvals.index(maxQ)]
+                maxIndex = [i for i,q in enumerate(state_qvals) if q==maxQ]
+                action = state_actions[random.choice(maxIndex)]
 
         ########### 
         ## TO DO ##
         ###########
         # When not learning, choose a random action
         # When learning, choose a random action with 'epsilon' probability
-        #   Otherwise, choose an action with the highest Q-value for the current state
- 
+        # Otherwise, choose an action with the highest Q-value for the current state
+        # Be sure that when choosing an action with highest Q-value that you randomly select between actions that "tie".
         return action
 
 
     def learn(self, state, action, reward):
         """ The learn function is called after the agent completes an action and
-            receives an award. This function does not consider future rewards 
+            receives a reward. This function does not consider future rewards 
             when conducting learning. """
 
         ########### 
@@ -142,13 +141,13 @@ class LearningAgent(Agent):
         ###########
         # When learning, implement the value iteration update rule
         #   Use only the learning rate 'alpha' (do not use the discount factor 'gamma')
-        state_actions = self.Q[state]
-        q_score = state_actions[action]
-        # print("1: ",self.Q[state])
-        state_actions[action] = q_score*(1-self.alpha) + self.alpha*reward
-        self.Q[state] = state_actions
-        # print("2: ",self.Q[state])
-        return 
+        if self.learning:
+            state_actions = self.Q[state]
+            q_score = state_actions[action]
+            state_actions[action] = q_score*(1-self.alpha) + self.alpha*reward
+            self.Q[state] = state_actions
+            
+        return
 
 
     def update(self):
@@ -189,7 +188,7 @@ def run():
     # Follow the driving agent
     # Flags:
     #   enforce_deadline - set to True to enforce a deadline metric
-    env.set_primary_agent(agent,enforce_deadline=True)
+    env.set_primary_agent(agent, enforce_deadline=True)
 
     ##############
     # Create the simulation
@@ -198,14 +197,14 @@ def run():
     #   display      - set to False to disable the GUI if PyGame is enabled
     #   log_metrics  - set to True to log trial and simulation results to /logs
     #   optimized    - set to True to change the default log file name
-    sim = Simulator(env,display=False,update_delay=.0001,log_metrics=True,optimized=False)
+    sim = Simulator(env,update_delay=.001,log_metrics=True,optimized=True)
     
     ##############
     # Run the simulator
     # Flags:
     #   tolerance  - epsilon tolerance before beginning testing, default is 0.05 
     #   n_test     - discrete number of testing trials to perform, default is 0
-    sim.run(n_test=10, tolerance=.01)
+    sim.run(n_test=10,tolerance=0.01)
 
 
 if __name__ == '__main__':
